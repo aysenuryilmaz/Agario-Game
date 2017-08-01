@@ -1,6 +1,7 @@
 package tr.org.linux.kamp.agarioclone.logic;
 
 import java.awt.Color;
+import java.awt.Point;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
@@ -8,142 +9,345 @@ import java.util.ArrayList;
 import java.util.Random;
 
 import tr.org.linux.kamp.agarioclone.model.Chip;
+import tr.org.linux.kamp.agarioclone.model.Difficulty;
+import tr.org.linux.kamp.agarioclone.model.Enemy;
 import tr.org.linux.kamp.agarioclone.model.GameObject;
+import tr.org.linux.kamp.agarioclone.model.Mine;
 import tr.org.linux.kamp.agarioclone.model.Player;
 import tr.org.linux.kamp.agarioclone.view.GameFrame;
 import tr.org.linux.kamp.agarioclone.view.GamePanel;
 
 public class GameLogic {
 	private Player player;
-	private ArrayList<GameObject>gameObjects;
-	
+	private ArrayList<GameObject> gameObjects;
+	// chips that will be removed from the screen
+	private ArrayList<GameObject> chipsToRemove;
+	// mine that will be removed from the screen
+	private ArrayList<GameObject> minesToRemove;
+	// enemies that will be removed from the screen
+	private ArrayList<GameObject> enemiesToRemove;
+
 	private GameFrame gameFrame;
 	private GamePanel gamePanel;
-	
+
 	private int xTarget;
 	private int yTarget;
-	
-	private Random random=new  Random();
-	
-	private boolean isGameRunning=false;//oyun çalışıyormu diye boolean
-	
-	public GameLogic() {
-		player= new Player(10,10,20,3,Color.DARK_GRAY);
-		gameObjects=new ArrayList<GameObject>();
+
+	private Random random ;
+
+	private boolean isGameRunning = true;// oyun çalışıyormu diye boolean
+
+	public GameLogic(String playerName,Color selectedColor,Difficulty difficulty) {
+		// synchronizeyi oyuncunun kullanıldığı hemen hemen her yere senkronize olsun
+		// dedik
+		player = new Player(10, 10, 20, 5, selectedColor,playerName);
+
+		gameObjects = new ArrayList<GameObject>();
+		chipsToRemove = new ArrayList<GameObject>();
+		minesToRemove = new ArrayList<GameObject>();
+		enemiesToRemove = new ArrayList<GameObject>();
+
 		gameObjects.add(player);
+
+		gameFrame = new GameFrame();
+		gamePanel = new GamePanel(gameObjects);
+		gamePanel.setSize(640, 480);
+
+		random= new Random();
 		
-		gameFrame=new GameFrame();
-		gamePanel= new GamePanel(gameObjects);
-		
-		fillChips(15);
+		fillMines(10);
+		fillChips(25);
+		fillEnemies(10);
+
 		addMouseEvents();
 	}
-	
-	public void checkCollision() {
-		ArrayList<GameObject>objectsToRemove=new ArrayList<GameObject>();
-		for (GameObject gameObject : gameObjects) {//game objesini başan sona dolaşıyoruz
-			if(player.getRectangle().intersects(gameObject.getRectangle())) {//kesişiyor mu diye bakıyoruz
-				if(gameObject instanceof Chip) {//kesişen şey Chip mi diye bakıyorum
-					player.setRadious(player.getRadious()+gameObject.getRadious());
-					//--arraylist oluşturmaya gerek kalmadan da bu şekilde yapılabilir-----
-					//gameObject.setX(1000);
-					//gameObject.setY(1000);
-					objectsToRemove.add(gameObject);
+
+	private synchronized void checkCollision() {
+
+		for (GameObject gameObject : gameObjects) {
+			// instead of just a collision check,
+			// we want to check if the object completely
+			// contain the other object
+			// if (player.getRectangle().intersects(gameObject.getRectangle())) {//
+			// kesişiyor mu diye bakıyoruz
+			if (player.getRectangle().intersects(gameObject.getRectangle())) {
+				if (gameObject instanceof Chip) {// kesişen şey Chip mi diye bakıyorum
+					player.setRadious(player.getRadious() + gameObject.getRadious());
+					// --arraylist oluşturmaya gerek kalmadan da bu şekilde yapılabilir-----
+					// gameObject.setX(1000);
+					// gameObject.setY(1000);
+					chipsToRemove.add(gameObject);
+				}
+				
+				if (gameObject instanceof Mine) {
+					player.setRadious((int) player.getRadious() / 2);
+					minesToRemove.add(gameObject);
+				}
+				if(gameObject instanceof Enemy) {
+					if(player.getRadious()>gameObject.getRadious()) {
+						player.setRadious(player.getRadious()+gameObject.getRadious());
+						enemiesToRemove.add(gameObject);
+					}else if(player.getRadious()<gameObject.getRadious()) {
+						gameObject.setRadious(gameObject.getRadious()+player.getRadious());
+						//GameOver
+						isGameRunning=false;
+					}
+				}
+			}
+			if(gameObject instanceof Enemy) {
+				Enemy enemy =(Enemy) gameObject;
+				
+				for (GameObject gameObject2 : gameObjects) {
+					if(enemy.getRectangle().intersects(gameObject2.getRectangle())) {
+						if(gameObject2 instanceof Chip) {
+							enemy.setRadious(enemy.getRadious()+gameObject2.getRadious());
+							chipsToRemove.add(gameObject2);
+						}
+						if(gameObject2 instanceof Mine) {
+							enemy.setRadious((int)enemy.getRadious()/2);
+							minesToRemove.add(gameObject2);
+						}
+					}
 				}
 			}
 		}
-		gameObjects.removeAll(objectsToRemove);
-		fillChips(objectsToRemove.size());
+		// loop complete remove the objects
+		gameObjects.removeAll(chipsToRemove);
+		gameObjects.removeAll(minesToRemove);
+		gameObjects.removeAll(enemiesToRemove);
 	}
 
-	private void movePlayer() {
-		if(xTarget>player.getX()) {
-			player.setX(player.getX()+player.getSpeed());
-		}else if(xTarget<player.getX()){
-			player.setX(player.getX()-player.getSpeed());
+	private synchronized void addNewObjects() {
+		fillChips(chipsToRemove.size());
+		chipsToRemove.clear();
+
+		fillMines(minesToRemove.size());
+		minesToRemove.clear();
+
+		fillEnemies(enemiesToRemove.size());
+		enemiesToRemove.clear();
+	}
+
+	private synchronized void movePlayer() {
+		if (xTarget > player.getX()) {
+			player.setX(player.getX() + player.getSpeed());
+		} else if (xTarget < player.getX()) {
+			player.setX(player.getX() - player.getSpeed());
 		}
-		
-		if(yTarget>player.getY()) {
-			player.setY(player.getY()+player.getSpeed());
-		}else if(xTarget<player.getY()){
-			player.setY(player.getY()-player.getSpeed());
+
+		if (yTarget > player.getY()) {
+			player.setY(player.getY() + player.getSpeed());
+		} else if (yTarget < player.getY()) {
+			player.setY(player.getY() - player.getSpeed());
 		}
 	}
-	
-	private void fillChips(int n) {
-		for(int i=0;i<n;i++) {
-			gameObjects.add(new Chip(random.nextInt(1000),random.nextInt(1000), 10, Color.ORANGE));
+
+	private synchronized void moveEnemies() {
+		for (GameObject gameObject : gameObjects) {
+			if (gameObject instanceof Enemy) {
+				Enemy enemy=(Enemy)gameObject;//enemy türünde gameobject cast ettik
+				if (enemy.getRadious() < player.getRadious()) {
+					// kaçacak
+					int distance=(int)Point.distance(player.getX(), player.getY(), enemy.getX(), enemy.getY());
+					
+					int newX=enemy.getX()+enemy.getSpeed();
+					int newY=enemy.getY()+enemy.getSpeed();
+					if(calculateNewDistanceToEnemy(enemy,distance,newX,newY)){
+						continue;
+					}
+					
+					newX=enemy.getX()+enemy.getSpeed();
+					newY=enemy.getY()-enemy.getSpeed();
+					if(calculateNewDistanceToEnemy(enemy,distance,newX,newY)) {
+						continue;
+					}
+					
+					newX=enemy.getX()-enemy.getSpeed();
+					newY=enemy.getY()+enemy.getSpeed();
+					if(calculateNewDistanceToEnemy(enemy,distance,newX,newY)) {
+						continue;
+					}
+					
+					newX=enemy.getX()-enemy.getSpeed();
+					newY=enemy.getY()-enemy.getSpeed();
+					if(calculateNewDistanceToEnemy(enemy,distance,newX,newY)) {
+						continue;
+					}
+					
+					
+				} else {
+					// Yiyecek
+					if (player.getX() > enemy.getX()) {
+						enemy.setX(enemy.getX() + enemy.getSpeed());
+					} else if (player.getX() < enemy.getX()) {
+						enemy.setX(enemy.getX() - enemy.getSpeed());
+					}
+
+					if (player.getY() > enemy.getY()) {
+						enemy.setY(enemy.getY() + enemy.getSpeed());
+					} else if (player.getX() < enemy.getY()) {
+						enemy.setY(enemy.getY() - enemy.getSpeed());
+					}
+				}
+			}
 		}
-		
+	}
+
+	private boolean calculateNewDistanceToEnemy(Enemy enemy,int distance,int x, int y) {
+		int newDistance= (int) Point.distance(player.getX(), player.getY(), x, y);
+		if(newDistance > distance) {
+			enemy.setX(x);
+			enemy.setY(y);
+			return true;
+		}
+		return false;
 	}
 	
-	private void startGame() { //oyun döngümüzü başlattık
+	private synchronized void fillChips(int n) {
+		for (int i = 0; i < n; i++) {
+			int x=random.nextInt(gamePanel.getWidth());
+			int y=random.nextInt(gamePanel.getHeight());
+			if(x>=gamePanel.getWidth()) {
+				x-=15;
+			}
+			if(y>=gamePanel.getHeight()) {
+				y-=15;
+			}
+			gameObjects.add(new Chip(x,y, 10, Color.magenta));
+		}
+
+	}
+
+	private synchronized void fillMines(int n) {// içine kaç tane mayın aldığımızı da alsın
+		for (int i = 0; i < n; i++) {
+
+			int x = random.nextInt(gamePanel.getWidth());
+			int y = random.nextInt(gamePanel.getHeight());
+			if (x >= gamePanel.getWidth()) {
+				x -= 15;
+			}
+			if (y >= gamePanel.getHeight()) {
+				y -= 15;
+			}
+
+			Mine mine = new Mine(x, y, 20, Color.GREEN);
+
+			while (player.getRectangle().intersects(mine.getRectangle())) {
+				x = random.nextInt(gamePanel.getWidth());
+				y = random.nextInt(gamePanel.getHeight());
+				if (x >= gamePanel.getWidth()) {
+					x -= 15;
+				}
+				if (y >= gamePanel.getHeight()) {
+					y -= 15;
+				}
+				mine.setX(x);
+				mine.setY(y);
+			}
+
+			gameObjects.add(mine);
+		}
+	}
+
+	private void fillEnemies(int n) {
+		for (int i = 0; i < n; i++) {
+			int x = random.nextInt(gamePanel.getWidth());
+			int y = random.nextInt(gamePanel.getHeight());
+			if (x >= gamePanel.getWidth()) {
+				x -= 15;
+			}
+			if (y >= gamePanel.getHeight()) {
+				y -= 15;
+			}
+			Enemy enemy = new Enemy(x, y, (random.nextInt(10) + 25), 1, Color.RED);
+			while (player.getRectangle().intersects(enemy.getRectangle())) {
+				x = random.nextInt(gamePanel.getWidth());
+				y = random.nextInt(gamePanel.getHeight());
+				if (x >= gamePanel.getWidth()) {
+					x -= 15;
+				}
+				if (y >= gamePanel.getHeight()) {
+					y -= 15;
+				}
+				enemy.setX(x);
+				enemy.setY(y);
+			}
+
+			gameObjects.add(enemy);
+		}
+	}
+
+	private void startGame() { // oyun döngümüzü başlattık
 		new Thread(new Runnable() {
-			
+
 			@Override
 			public void run() {
-				while(isGameRunning)	{
+				while (isGameRunning) {
+
 					movePlayer();
+					moveEnemies();
 					checkCollision();
+					addNewObjects();
 					gamePanel.repaint();
+					
+					
 					try {
 						Thread.sleep(50);
 					} catch (InterruptedException e) {
-						e.printStackTrace();					
+						e.printStackTrace();
 					}
 				}
 			}
 		}).start();
 	}
-	
+
 	public void startApplication() {
 		gameFrame.setContentPane(gamePanel);
 		gameFrame.setVisible(true);
-		isGameRunning=true;
+		isGameRunning = true;
 		startGame();
 	}
-	
-	
+
 	public void addMouseEvents() {
 		gameFrame.addMouseListener(new MouseListener() {
-			
+
 			@Override
 			public void mouseReleased(MouseEvent e) {
-				
+
 			}
-			
+
 			@Override
 			public void mousePressed(MouseEvent e) {
-				
+
 			}
-			
+
 			@Override
 			public void mouseExited(MouseEvent e) {
-				
+
 			}
-			
+
 			@Override
 			public void mouseEntered(MouseEvent e) {
-								
+
 			}
-			
+
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				
+
 			}
 		});
-		
-		gameFrame.addMouseMotionListener(new MouseMotionListener() {//bir dosyayı tutup taşıdığım işlem örneğin
-			
+
+		gameFrame.addMouseMotionListener(new MouseMotionListener() {
+
 			@Override
 			public void mouseMoved(MouseEvent e) {
-				xTarget=e.getX();
-				yTarget=e.getY();
+				xTarget = e.getX();
+				yTarget = e.getY();
 			}
-			
+
 			@Override
 			public void mouseDragged(MouseEvent e) {
-								
+
 			}
 		});
 	}
