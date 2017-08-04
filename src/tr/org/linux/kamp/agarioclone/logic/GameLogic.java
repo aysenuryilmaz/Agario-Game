@@ -17,7 +17,15 @@ import tr.org.linux.kamp.agarioclone.model.Player;
 import tr.org.linux.kamp.agarioclone.view.GameFrame;
 import tr.org.linux.kamp.agarioclone.view.GamePanel;
 
+/**
+ * 
+ * @author aysenur
+ * @version1.0
+ *
+ */
+
 public class GameLogic {
+
 	private Player player;
 	private ArrayList<GameObject> gameObjects;
 	// chips that will be removed from the screen
@@ -34,12 +42,10 @@ public class GameLogic {
 	private int yTarget;
 
 	private Random random ;
-
-	private boolean isGameRunning = true;// oyun çalışıyormu diye boolean
+	//oyun çalışıyor mu kontrolü için boolean bir değer tuttuk
+	private boolean isGameRunning = true;
 
 	public GameLogic(String playerName,Color selectedColor,Difficulty difficulty) {
-		// synchronizeyi oyuncunun kullanıldığı hemen hemen her yere senkronize olsun
-		// dedik
 		player = new Player(10, 10, 20, 5, selectedColor,playerName);
 
 		gameObjects = new ArrayList<GameObject>();
@@ -66,10 +72,8 @@ public class GameLogic {
 
 		for (GameObject gameObject : gameObjects) {
 			// instead of just a collision check,
-			// we want to check if the object completely
-			// contain the other object
+			// we want to check if the object completely contain the other object
 			// if (player.getRectangle().intersects(gameObject.getRectangle())) {//
-			// kesişiyor mu diye bakıyoruz
 			if (player.getRectangle().intersects(gameObject.getRectangle())) {
 				if (gameObject instanceof Chip) {// kesişen şey Chip mi diye bakıyorum
 					player.setRadious(player.getRadious() + gameObject.getRadious());
@@ -94,6 +98,9 @@ public class GameLogic {
 					}
 				}
 			}
+			/**
+			 * Enemy objelerine de kendi aralarında yem yeme, mayına çarptığında yanması özelliklerini verebilmek için if koşulunu oluşturduk
+			 */
 			if(gameObject instanceof Enemy) {
 				Enemy enemy =(Enemy) gameObject;
 				
@@ -111,12 +118,15 @@ public class GameLogic {
 				}
 			}
 		}
-		// loop complete remove the objects
+		// loop is completed remove the objects
 		gameObjects.removeAll(chipsToRemove);
 		gameObjects.removeAll(minesToRemove);
 		gameObjects.removeAll(enemiesToRemove);
 	}
 
+	/**
+	 * addNewObject methodunda yenilen chip kadar yeni obje oluşturuyoruz ve yenilen objeleri ortadan kaldırıyoruz.
+	 */
 	private synchronized void addNewObjects() {
 		fillChips(chipsToRemove.size());
 		chipsToRemove.clear();
@@ -128,6 +138,9 @@ public class GameLogic {
 		enemiesToRemove.clear();
 	}
 
+	/**
+	 * Mouse konumunu algılayarak player objesinin hareketini sağlamak için oluşturulan bir method.
+	 */
 	private synchronized void movePlayer() {
 		if (xTarget > player.getX()) {
 			player.setX(player.getX() + player.getSpeed());
@@ -142,6 +155,9 @@ public class GameLogic {
 		}
 	}
 
+	/**
+	 * Enemy objesinin Player objesinden büyük ya da küçük olma durumuna göre Enemy objesinin konumunu(nereye gideceğini) ve yapacağı davranışları belirliyoruz.
+	 */
 	private synchronized void moveEnemies() {
 		for (GameObject gameObject : gameObjects) {
 			if (gameObject instanceof Enemy) {
@@ -193,6 +209,9 @@ public class GameLogic {
 		}
 	}
 
+	/**
+	 * Enemy objesi için Player'ın konumuna göre yeni konumunu ayarlıyoruz.
+	 */
 	private boolean calculateNewDistanceToEnemy(Enemy enemy,int distance,int x, int y) {
 		int newDistance= (int) Point.distance(player.getX(), player.getY(), x, y);
 		if(newDistance > distance) {
@@ -203,6 +222,10 @@ public class GameLogic {
 		return false;
 	}
 	
+	/**
+	 * fillChips methodunda verilen ekran boyutu içinde yem oluşmasını sağlıyoruz.
+	 * @param n kaç tane yem(chip)oluşturmak istediğimiz değer.
+	 */
 	private synchronized void fillChips(int n) {
 		for (int i = 0; i < n; i++) {
 			int x=random.nextInt(gamePanel.getWidth());
@@ -218,7 +241,13 @@ public class GameLogic {
 
 	}
 
-	private synchronized void fillMines(int n) {// içine kaç tane mayın aldığımızı da alsın
+	/**
+	 * 
+	 *fillMines methodunda verilen ekran boyutu içinde yem oluşmasını sağlıyoruz.
+	 * @param n kaç tane mayın(Mine)oluşturmak istediğimiz değer.
+	 */
+	
+	private synchronized void fillMines(int n) {
 		for (int i = 0; i < n; i++) {
 
 			int x = random.nextInt(gamePanel.getWidth());
@@ -231,7 +260,9 @@ public class GameLogic {
 			}
 
 			Mine mine = new Mine(x, y, 20, Color.GREEN);
-
+			/**
+			 * oluşturulan mayın objesi player objesinin üzerine oluşturulmasın diye kullanılan bir koşul.
+			 */
 			while (player.getRectangle().intersects(mine.getRectangle())) {
 				x = random.nextInt(gamePanel.getWidth());
 				y = random.nextInt(gamePanel.getHeight());
@@ -249,6 +280,12 @@ public class GameLogic {
 		}
 	}
 
+	/**
+	 * 
+	 *fillEnemies methodunda verilen ekran boyutu(panel) içinde yem oluşmasını sağlıyoruz.
+	 * @param n kaç tane düşman(Enemies)oluşturmak istediğimiz değer.
+	 */
+	
 	private void fillEnemies(int n) {
 		for (int i = 0; i < n; i++) {
 			int x = random.nextInt(gamePanel.getWidth());
@@ -259,6 +296,11 @@ public class GameLogic {
 			if (y >= gamePanel.getHeight()) {
 				y -= 15;
 			}
+			
+			/**
+			 * oluşturulan düşman objesi player objesinin üzerine oluşturulmasın diye kullanılan bir koşul.
+			 */
+			
 			Enemy enemy = new Enemy(x, y, (random.nextInt(10) + 25), 1, Color.RED);
 			while (player.getRectangle().intersects(enemy.getRectangle())) {
 				x = random.nextInt(gamePanel.getWidth());
@@ -308,6 +350,7 @@ public class GameLogic {
 		startGame();
 	}
 
+	
 	public void addMouseEvents() {
 		gameFrame.addMouseListener(new MouseListener() {
 
@@ -337,6 +380,10 @@ public class GameLogic {
 			}
 		});
 
+		/**
+		 * mouse hareketini algılayan javanın kendi içinde bulunan method.
+		 */
+		
 		gameFrame.addMouseMotionListener(new MouseMotionListener() {
 
 			@Override
